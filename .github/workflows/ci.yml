@@ -23,8 +23,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Find Docker Host IP
-        uses: addnab/docker-run-action@v1
-        with:
-          image: alpine:latest
-          run: apk update > /dev/null && apk add iproute2 > /dev/null && ip -4 route show default | cut -d' ' -f3
+      - name: Run WP container
+        run: |
+          docker-compose -f docker-compose.yml down -v
+          docker-compose -f docker-compose.yml up -d --force-recreate
+          chmod +x ./bin/wp-init.sh && ./bin/wp-init.sh
+        env:
+          PE_WP_HOST: 172.17.0.1
+          PE_WP_VERSION: ${{ matrix.wp_version }}
+
+      - name: CodeceptJS run
+        run: |
+          export show=false url=http://172.17.0.1/
+          npm install
+          npm run e2e:run
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose -f docker-compose.yml down -v
